@@ -29,7 +29,7 @@ interface IDirect3DDeviceManager9;
 //
 // Forward declarations
 //
-class CMFAttributes;
+//class CMFAttributes;
 
 //
 // CMultipinMft class:
@@ -50,8 +50,7 @@ class CMultipinMft :
 #endif
 {
 public:
-    CMultipinMft(
-        void );
+    CMultipinMft(void);
 
     virtual ~CMultipinMft();
 

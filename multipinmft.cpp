@@ -51,7 +51,7 @@ CMultipinMft::CMultipinMft()
     pAttributes->SetUINT32( MF_TRANSFORM_ASYNC, TRUE );
     pAttributes->SetUINT32( MFT_SUPPORT_DYNAMIC_FORMAT_CHANGE, TRUE );
     pAttributes->SetUINT32( MF_SA_D3D_AWARE, TRUE );
-    pAttributes->SetString( MFT_ENUM_HARDWARE_URL_Attribute, L"SampleMultiPinMft" );
+    pAttributes->SetString( MFT_ENUM_HARDWARE_URL_Attribute, L"Insta360 Device MFT" );
     m_spAttributes = pAttributes;
 #if defined (MF_DEVICEMFT_PHTOTOCONFIRMATION)
     m_guidPhotoConfirmationSubtype = MFVideoFormat_NV12;

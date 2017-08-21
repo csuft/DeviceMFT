@@ -150,9 +150,11 @@
   </ItemGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <TargetName>Insta360MFT</TargetName>
+    <IntDir>$(Platform)\$(ConfigurationName)\Temp</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <TargetName>Insta360MFT</TargetName>
+    <IntDir>$(Platform)\$(ConfigurationName)\temp</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <TargetName>multipinmft</TargetName>
