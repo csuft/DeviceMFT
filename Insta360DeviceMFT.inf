@@ -1,0 +1,74 @@
+;=================================================================================
+; Microsoft Sample Extension INF for USB Camera SampleDeviceMFT installation
+; Copyright (C) Microsoft Corporation.  All rights reserved.
+;=================================================================================
+
+[Version]
+Signature="$WINDOWS NT$"
+Class=Extension
+ClassGUID={e2f84ce7-8efa-411c-aa69-97454ca4cb57} 
+Provider=%INSTA360%
+ExtensionId = {C16A7A1B-4852-4A6C-A8AF-228348F43303} ; <Guid("C16A7A1B-4852-4A6C-A8AF-228348F43303")>
+CatalogFile.NT = Insta360ExtensionInfForDmftInstallation.cat
+DriverVer=08/28/2017,10.0.17000.2000
+
+[Manufacturer]
+%INSTA360% = Insta360DeviceMFT,ntamd64
+
+[Insta360DeviceMFT.ntamd64]
+%Insta360Camera.DeviceDesc% = Insta360DeviceMFT_Install, usb\vid_2e1a&pid_1000&mi_00 ; replace with your camera device VID PID
+
+[Insta360DeviceMFT_Install]
+CopyFiles=Insta360DeviceMFTCopy
+AddReg=Insta360DeviceMFT_COM.AddReg
+
+;-----------------------------------------------------------------------------------
+;
+;  Registers Device MFT COM object
+;
+;-----------------------------------------------------------------------------------
+
+[Insta360DeviceMFT_COM.AddReg]
+HKCR,CLSID\%Insta360DeviceMFT.CLSID%,,,%Insta360DeviceMFT.FriendlyName%
+HKCR,CLSID\%Insta360DeviceMFT.CLSID%InProcServer32\,,,%%SystemRoot%%\Insta360DeviceMFT.dll
+HKCR,CLSID\%Insta360DeviceMFT.CLSID%InProcServer32\,ThreadingModel,,"Both"
+
+[Insta360DeviceMFT_Install.Interfaces]
+AddInterface=%KSCATEGORY_VIDEO_CAMERA%,,Insta360DeviceMFT.Interfaces,
+
+[Insta360DeviceMFT.Interfaces]
+AddReg=Insta360DeviceMFT.AddReg
+
+;-----------------------------------------------------------------------------------
+;
+;  Add DeviceMFT CLSID to device interface instance registry key
+;
+;-----------------------------------------------------------------------------------
+[Insta360DeviceMFT.AddReg]
+HKR,,CameraDeviceMftClsid,,%Insta360DeviceMFT.CLSID%
+
+;-----------------------------------------------------------------------------------
+;
+;  File copy sections
+;
+;-----------------------------------------------------------------------------------
+[SourceDisksFiles]
+Insta360DeviceMFT.dll=1
+
+[SourceDisksNames]
+1 = %MediaDescription%
+
+[DestinationDirs]
+Insta360DeviceMFTCopy=11
+DefaultDestDir = 11
+
+[Insta360DeviceMFTCopy]
+Insta360DeviceMFT.dll
+
+[Strings]
+INSTA360 = "Shenzhen Arashi Vision, Inc."
+Insta360Camera.DeviceDesc = "Insta360 Camera Extension"
+MediaDescription="Insta360 Camera Device MFT Installation Media"
+Insta360DeviceMFT.CLSID = "{3D58C3CC-6458-459E-BA11-7EFE391CDBFF}" 
+Insta360DeviceMFT.FriendlyName = "Insta360 Camera Device MFT"
+KSCATEGORY_VIDEO_CAMERA="{E5323777-F976-4f5b-9B55-B94699C46E44}"

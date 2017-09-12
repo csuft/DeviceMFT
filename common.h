@@ -388,10 +388,10 @@ public:
 //The below guid is used to register the GUID as the Device Transform. This should be adeed to the 
 //HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\DeviceClasses\ and under the 
 //GLOBAL#\Device Parameters key, add a CameraDeviceMFTCLSID value, and set its value to
-// {0E313280-3169-4F41-A329-9E854169634F} for the Pipeline to pick up the Transform.
-//
+// {3D58C3CC-6458-459E-BA11-7EFE391CDBFF} for the Pipeline to pick up the Transform.
+// 
 DEFINE_GUID(CLSID_MultiPinMFT,
-    0xe313280, 0x3169, 0x4f41, 0xa3, 0x29, 0x9e, 0x85, 0x41, 0x69, 0x63, 0x4f);
+	0x3d58c3cc, 0x6458, 0x459e, 0xba, 0x11, 0x7e, 0xfe, 0x39, 0x1c, 0xdb, 0xff);
 
 
 typedef enum _MF_TRANSFORM_XVP_OPERATION{
