@@ -66,7 +66,7 @@ DefaultDestDir = 11
 Insta360DeviceMFT.dll
 
 [Strings]
-INSTA360 = "Shenzhen Arashi Vision, Inc."
+INSTA360 = "Shenzhen Arashi Vision Co, Ltd."
 Insta360Camera.DeviceDesc = "Insta360 Camera Extension"
 MediaDescription="Insta360 Camera Device MFT Installation Media"
 Insta360DeviceMFT.CLSID = "{3D58C3CC-6458-459E-BA11-7EFE391CDBFF}" 
