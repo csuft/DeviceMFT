@@ -8,6 +8,7 @@
 
 #include "stdafx.h"
 #include "multipinmft.h"
+#include <fstream>
 #ifdef MF_WPP
 #include "multipinmft.tmh"    //--REF_ANALYZER_DONT_REMOVE--
 #endif
@@ -851,6 +852,9 @@ output pins and populate the corresponding MFT_OUTPUT_DATA_BUFFER with the sampl
     MFTLOCKED();
     UNREFERENCED_PARAMETER( dwFlags );
 
+	std::ofstream outputStream("E:/out.txt", std::ios::out);
+	outputStream << "Size of cOutputBufferCount " << cOutputBufferCount;
+
     if (cOutputBufferCount > m_OutputPinCount )
     {
         DMFTCHECKHR_GOTO( E_INVALIDARG, done );
@@ -864,9 +868,8 @@ output pins and populate the corresponding MFT_OUTPUT_DATA_BUFFER with the sampl
         COutPin *poPin = ( COutPin * )GetOutPin( dwStreamID );
         DMFTCHECKNULL_GOTO( poPin, done, E_INVALIDARG );
 
-        if ( SUCCEEDED( poPin->ProcessOutput( dwFlags, &pOutputSamples[i],
-            pdwStatus ) ) )
-        {
+        if ( SUCCEEDED( poPin->ProcessOutput( dwFlags, &pOutputSamples[i], pdwStatus ) ) )
+        { 
             gotOne = true;
         }
     }
@@ -1841,7 +1844,7 @@ STDMETHODIMP CMultipinMft::BridgeInputPinOutputPin(
         GUID subType = GUID_NULL;
         DMFTCHECKHR_GOTO( pMediaType->GetGUID(MF_MT_SUBTYPE,&subType), done );
         
-        if ( IsKnownUncompressedVideoType( subType ) )
+        //if ( IsKnownUncompressedVideoType( subType ) )
         {
             DMFTCHECKHR_GOTO( poPin->AddMediaType(NULL, pMediaType.Get() ), done );
         }
