@@ -39,6 +39,15 @@
     <ClCompile Include="stdafxsrc.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Decoder\BlenderFilter.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Decoder\BlenderSink.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Decoder\RawFrameSrc.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="basepin.h">
@@ -320,10 +329,74 @@
     <ClInclude Include="multipinmft.h" />
     <ClInclude Include="multipinmfthelpers.h" />
     <ClInclude Include="stdafx.h" />
+    <ClInclude Include="basepin.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="common.h" />
+    <ClInclude Include="custompin.h" />
+    <ClInclude Include="mftpeventgenerator.h" />
+    <ClInclude Include="multipinmft.h" />
+    <ClInclude Include="multipinmfthelpers.h" />
+    <ClInclude Include="stdafx.h" />
+    <ClInclude Include="basepin.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="common.h" />
+    <ClInclude Include="custompin.h" />
+    <ClInclude Include="mftpeventgenerator.h" />
+    <ClInclude Include="multipinmft.h" />
+    <ClInclude Include="multipinmfthelpers.h" />
+    <ClInclude Include="stdafx.h" />
+    <ClInclude Include="basepin.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="common.h" />
+    <ClInclude Include="custompin.h" />
+    <ClInclude Include="mftpeventgenerator.h" />
+    <ClInclude Include="multipinmft.h" />
+    <ClInclude Include="multipinmfthelpers.h" />
+    <ClInclude Include="stdafx.h" />
+    <ClInclude Include="basepin.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="common.h" />
+    <ClInclude Include="custompin.h" />
+    <ClInclude Include="mftpeventgenerator.h" />
+    <ClInclude Include="multipinmft.h" />
+    <ClInclude Include="multipinmfthelpers.h" />
+    <ClInclude Include="stdafx.h" />
+    <ClInclude Include="basepin.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="common.h" />
+    <ClInclude Include="custompin.h" />
+    <ClInclude Include="mftpeventgenerator.h" />
+    <ClInclude Include="multipinmft.h" />
+    <ClInclude Include="multipinmfthelpers.h" />
+    <ClInclude Include="stdafx.h" />
+    <ClInclude Include="basepin.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="common.h" />
+    <ClInclude Include="custompin.h" />
+    <ClInclude Include="mftpeventgenerator.h" />
+    <ClInclude Include="multipinmft.h" />
+    <ClInclude Include="multipinmfthelpers.h" />
+    <ClInclude Include="stdafx.h" />
+    <ClInclude Include="Decoder\BlenderFilter.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Decoder\BlenderSink.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Decoder\RawFrameSrc.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="*.def;*.bat;*.hpj;*.asmx">
       <Filter>Source Files</Filter>
     </None>
+    <None Include="Insta360DeviceMFT.inf" />
   </ItemGroup>
 </Project>

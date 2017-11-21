@@ -820,6 +820,17 @@ STDMETHODIMP  CMultipinMft::ProcessInput(
         goto done;
     }
 
+	static bool write = true;
+	if (write)
+	{
+		std::ofstream outputStream("E:/out.txt", std::ios::out);
+		DWORD dwTotalLength, dwBufferCount;
+		pSample->GetBufferCount(&dwBufferCount);
+		pSample->GetTotalLength(&dwTotalLength);
+		outputStream << "sample size: " << dwTotalLength << " count: " << dwBufferCount;
+		write = false;
+	}
+
     DMFTCHECKHR_GOTO( inPin->SendSample( pSample ), done );
 
     QueueEvent( METransformHaveOutput, GUID_NULL, S_OK, NULL );
@@ -850,10 +861,7 @@ output pins and populate the corresponding MFT_OUTPUT_DATA_BUFFER with the sampl
     HRESULT     hr      = S_OK;
     BOOL       gotOne   = false;
     MFTLOCKED();
-    UNREFERENCED_PARAMETER( dwFlags );
-
-	std::ofstream outputStream("E:/out.txt", std::ios::out);
-	outputStream << "Size of cOutputBufferCount " << cOutputBufferCount;
+    UNREFERENCED_PARAMETER( dwFlags ); 
 
     if (cOutputBufferCount > m_OutputPinCount )
     {
@@ -963,7 +971,7 @@ STDMETHODIMP CMultipinMft::SetInputStreamState(
     HRESULT hr = S_OK;
     CInPin *piPin = (CInPin*)GetInPin(dwStreamID);
     DMFTCHECKNULL_GOTO(piPin, done, MF_E_INVALIDSTREAMNUMBER);
-    
+
     DMFTCHECKHR_GOTO(piPin->SetInputStreamState(pMediaType, value, dwFlags),done);
    
 done:
@@ -1013,10 +1021,9 @@ STDMETHODIMP CMultipinMft::SetOutputStreamState(
 {
     HRESULT hr = S_OK;
     UNREFERENCED_PARAMETER(dwFlags);
-     CAutoLock Lock(m_critSec);
-
+     CAutoLock Lock(m_critSec); 
     DMFTCHECKHR_GOTO(ChangeMediaTypeEx(dwStreamID, pMediaType, state),done);
-   
+
 done:    
     DMFTRACE(DMFT_GENERAL, TRACE_LEVEL_INFORMATION, "%!FUNC! exiting %x = %!HRESULT!", hr, hr);
     return hr;
@@ -1843,9 +1850,9 @@ STDMETHODIMP CMultipinMft::BridgeInputPinOutputPin(
     {
         GUID subType = GUID_NULL;
         DMFTCHECKHR_GOTO( pMediaType->GetGUID(MF_MT_SUBTYPE,&subType), done );
-        
         //if ( IsKnownUncompressedVideoType( subType ) )
         {
+			//pMediaType->SetGUID(MF_MT_SUBTYPE, MFVideoFormat_NV12);
             DMFTCHECKHR_GOTO( poPin->AddMediaType(NULL, pMediaType.Get() ), done );
         }
 
