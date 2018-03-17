@@ -406,9 +406,34 @@ protected:
 #endif
 
 #if (defined (MF_DEVICEMFT_ALLOW_MFT0_LOAD) && defined (MFT_UNIQUE_METHOD_NAMES))
-    _DEFINE_DEVICEMFT_MFT0HELPER_IMPL__
+	_DEFINE_DEVICEMFT_MFT0HELPER_IMPL__
 #endif
 
+	// Custom functions
+	STDMETHODIMP FindVideoDecoder(
+		const GUID& subtype        // Subtype   
+	);
+	STDMETHODIMP CreateColorConverter(
+		const GUID& inputSubtype,
+		const GUID& outputSubtype,
+		ComPtr<IMFTransform>& spMft
+	);
+	STDMETHODIMP CreateVideoType(
+		const GUID* subType,       // video subType
+		IMFMediaType **ppType,     // Receives a pointer to the media type.
+		UINT32 unWidth, // Video width (0 to ignore)
+		UINT32 unHeight // Video height (0 to ignore)
+	);
+	STDMETHODIMP CreateMediaSample(
+		DWORD cbData, // Maximum buffer size
+		IMFSample **ppSample // Receives the sample
+	);
+	STDMETHODIMP IsVideoProcessorSupported(BOOL *pbSupported);
+	STDMETHODIMP GetBestVideoProcessor(
+		const GUID& inputFormat,   // The input MediaFormat (e.g. MFVideoFormat_I420)
+		const GUID& outputFormat,   // The output MediaFormat (e.g. MFVideoFormat_NV12)
+		IMFTransform **ppProcessor // Receives the video processor
+	);
 
     //
     //Inline functions
@@ -454,7 +479,10 @@ private:
     UINT32                       m_punValue;
     ComPtr<IKsControl>           m_spIkscontrol;
     ComPtr<IMFAttributes>        m_spAttributes;
-    
+	ComPtr<IMFTransform>         m_spVideoDecoder;            // The video decoder transform
+	ComPtr<IMFTransform>         m_spConvertRGBAToNV12;      // The color conversion transform
+	ComPtr<IMFTransform>         m_spConvertI420ToRGBA;      // The color conversion transform
+
     multimap<int, int>          m_inputPinMap;            // How input pins are connected to output pins o-><0..inpins>
     multimap<int, int>          m_outputPinMap;           // How output pins are connected to input pins i-><0..outpins>
     CDMFTEventHandler           m_eventHandler;

@@ -8,7 +8,7 @@
 
 #include "stdafx.h"
 #include "multipinmft.h"
-#include <fstream>
+#include "log.h"
 #ifdef MF_WPP
 #include "multipinmft.tmh"    //--REF_ANALYZER_DONT_REMOVE--
 #endif
@@ -39,6 +39,9 @@ CMultipinMft::CMultipinMft()
     m_lWorkQueuePriority ( 0 ),
     m_spAttributes( nullptr ),
     m_spSourceTransform( nullptr ),
+	m_spVideoDecoder(nullptr),
+	m_spConvertI420ToRGBA(nullptr),
+	m_spConvertRGBAToNV12(nullptr),
     m_PhotoTriggerSent(false),
     m_filterHasIndependentPin( false ),
     m_FilterInPhotoSequence( false ),
@@ -76,8 +79,11 @@ CMultipinMft::~CMultipinMft( )
         SAFERELEASE( pioPin );
     }
     m_OutPins.clear();
-    m_spSourceTransform = nullptr;
 
+    m_spSourceTransform = nullptr;
+	m_spVideoDecoder = nullptr;
+	m_spConvertI420ToRGBA = nullptr;
+	m_spConvertRGBAToNV12 = nullptr;
 }
 
 STDMETHODIMP_(ULONG) CMultipinMft::AddRef(
@@ -187,6 +193,7 @@ STDMETHODIMP CMultipinMft::InitializeTransform (
     _In_ IMFAttributes *pAttributes
     )
 {
+	LOGINFO("Entry point: InitializeTransform");
     HRESULT                 hr              = S_OK;
     ComPtr<IUnknown>        spFilterUnk     = nullptr;
     DWORD                   *pcInputStreams = NULL, *pcOutputStreams = NULL;
@@ -407,6 +414,8 @@ STDMETHODIMP CMultipinMft::InitializeTransform (
     m_InputPinCount =  ULONG ( m_InPins.size() );
     m_OutputPinCount = ULONG ( m_OutPins.size() );
     
+	// start to read offset
+
 
 done:
     DMFTRACE(DMFT_GENERAL, TRACE_LEVEL_INFORMATION, "%!FUNC! exiting %x = %!HRESULT!",hr,hr);
@@ -554,6 +563,7 @@ STDMETHODIMP  CMultipinMft::GetInputAvailableType(
     _Out_ IMFMediaType**  ppMediaType
     )
 {
+	LOGINFO("GetInputAvailableType");
     HRESULT hr = S_OK;
     MFTLOCKED();
 
@@ -593,6 +603,7 @@ STDMETHODIMP CMultipinMft::GetOutputAvailableType(
 
 --*/
 {
+	LOGINFO("GetOutputAvailableType");
     HRESULT hr = S_OK;
     MFTLOCKED();
     
@@ -807,6 +818,7 @@ STDMETHODIMP  CMultipinMft::ProcessInput(
 
 --*/
 {
+	LOGINFO("ProcessInput");
     HRESULT     hr = S_OK;
     UNREFERENCED_PARAMETER( dwFlags );
 
@@ -847,13 +859,11 @@ output pins and populate the corresponding MFT_OUTPUT_DATA_BUFFER with the sampl
 
 --*/
 {
+	LOGINFO("ProcessOutput");
     HRESULT     hr      = S_OK;
     BOOL       gotOne   = false;
     MFTLOCKED();
     UNREFERENCED_PARAMETER( dwFlags );
-
-	std::ofstream outputStream("E:/out.txt", std::ios::out);
-	outputStream << "Size of cOutputBufferCount " << cOutputBufferCount;
 
     if (cOutputBufferCount > m_OutputPinCount )
     {
@@ -960,6 +970,7 @@ STDMETHODIMP CMultipinMft::SetInputStreamState(
 
     --*/
 {
+	LOGINFO("SetInputStreamState");
     HRESULT hr = S_OK;
     CInPin *piPin = (CInPin*)GetInPin(dwStreamID);
     DMFTCHECKNULL_GOTO(piPin, done, MF_E_INVALIDSTREAMNUMBER);
@@ -1011,6 +1022,7 @@ STDMETHODIMP CMultipinMft::SetOutputStreamState(
     connected to it
     --*/
 {
+	LOGINFO("SetOutputStreamState");
     HRESULT hr = S_OK;
     UNREFERENCED_PARAMETER(dwFlags);
      CAutoLock Lock(m_critSec);
@@ -1816,6 +1828,233 @@ STDMETHODIMP CMultipinMft::GetConnectOutPinStatus(
     return S_OK;
 }
 
+STDMETHODIMP CMultipinMft::FindVideoDecoder(
+	const GUID& subtype        // Subtype   
+)
+{
+	HRESULT hr = S_OK;
+
+	UINT32 count = 0;
+	IMFActivate **ppActivate = NULL;
+	MFT_REGISTER_TYPE_INFO info = { 0 };
+
+	info.guidMajorType = MFMediaType_Video;
+	info.guidSubtype = subtype;
+
+	hr = MFTEnumEx(
+		MFT_CATEGORY_VIDEO_DECODER,
+		MFT_ENUM_FLAG_ASYNCMFT | MFT_ENUM_FLAG_LOCALMFT | MFT_ENUM_FLAG_SORTANDFILTER,
+		&info,      // Input type
+		NULL,       // Output type
+		&ppActivate,
+		&count
+	);
+
+	if (SUCCEEDED(hr) && count == 0)
+	{
+		hr = MF_E_TOPO_CODEC_NOT_FOUND;
+	}
+
+	// Create the first decoder in the list.
+	if (SUCCEEDED(hr))
+	{
+		hr = ppActivate[0]->ActivateObject(IID_PPV_ARGS(&m_spVideoDecoder));
+	}
+
+	for (UINT32 i = 0; i < count; i++)
+	{
+		ppActivate[i]->Release();
+	}
+	CoTaskMemFree(ppActivate);
+
+	return hr;
+}
+
+STDMETHODIMP CMultipinMft::CreateVideoType(
+	const GUID* subType,       // video subType
+	IMFMediaType **ppType,     // Receives a pointer to the media type.
+	UINT32 unWidth, // Video width (0 to ignore)
+	UINT32 unHeight // Video height (0 to ignore)
+)
+{
+	HRESULT hr = S_OK;
+	IMFMediaType *pType = NULL;
+
+	DMFTCHECKHR_GOTO(MFCreateMediaType(&pType), done);
+	DMFTCHECKHR_GOTO(pType->SetGUID(MF_MT_MAJOR_TYPE, MFMediaType_Video), done);
+	DMFTCHECKHR_GOTO(pType->SetGUID(MF_MT_SUBTYPE, *subType), done);
+	DMFTCHECKHR_GOTO(pType->SetUINT32(MF_MT_ALL_SAMPLES_INDEPENDENT, TRUE), done); // UnCompressed
+	DMFTCHECKHR_GOTO(pType->SetUINT32(MF_MT_FIXED_SIZE_SAMPLES, TRUE), done); // UnCompressed
+	DMFTCHECKHR_GOTO(pType->SetUINT32(MF_MT_INTERLACE_MODE, MFVideoInterlace_Progressive), done);
+
+	if (unWidth > 0 && unHeight > 0)
+	{
+		DMFTCHECKHR_GOTO(MFSetAttributeSize(pType, MF_MT_FRAME_SIZE, unWidth, unHeight), done);
+	}
+
+	*ppType = pType;
+	(*ppType)->AddRef();
+
+done:
+	SAFE_RELEASE(pType);
+	return hr;
+}
+
+
+STDMETHODIMP CMultipinMft::CreateMediaSample(
+	DWORD cbData,        // Maximum buffer size
+	IMFSample **ppSample // Receives the sample
+)
+{
+	assert(ppSample);
+
+	HRESULT hr = S_OK;
+
+	IMFSample *pSample = NULL;
+	IMFMediaBuffer *pBuffer = NULL;
+
+	DMFTCHECKHR_GOTO(MFCreateSample(&pSample), done);
+	DMFTCHECKHR_GOTO(MFCreateMemoryBuffer(cbData, &pBuffer), done);
+	DMFTCHECKHR_GOTO(pSample->AddBuffer(pBuffer), done);
+
+	*ppSample = pSample;
+	(*ppSample)->AddRef();
+
+done:
+	SAFE_RELEASE(pSample);
+	SAFE_RELEASE(pBuffer);
+	return hr;
+}
+
+STDMETHODIMP CMultipinMft::IsVideoProcessorSupported(BOOL *pbSupported)
+{
+	HRESULT hr = S_OK;
+	IMFTransform *pTransform = NULL;
+
+	if (!pbSupported)
+	{
+		DMFTCHECKHR_GOTO(E_POINTER, done);
+	}
+
+	hr = CoCreateInstance(CLSID_VideoProcessorMFT, NULL,
+		CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&pTransform));
+	*pbSupported = SUCCEEDED(hr);
+	if (FAILED(hr))
+	{
+		hr = S_OK; // not an error
+	}
+
+done:
+	SAFE_RELEASE(pTransform);
+	return hr;
+}
+
+HRESULT CMultipinMft::GetBestVideoProcessor(
+	const GUID& inputFormat,   // The input MediaFormat (e.g. MFVideoFormat_I420)
+	const GUID& outputFormat,   // The output MediaFormat (e.g. MFVideoFormat_NV12)
+	IMFTransform **ppProcessor // Receives the video processor
+)
+{
+	assert(ppProcessor);
+
+	*ppProcessor = NULL;
+
+	HRESULT hr = S_OK;
+	UINT32 count = 0;
+
+	IMFActivate **ppActivate = NULL;
+
+	MFT_REGISTER_TYPE_INFO infoInput = { MFMediaType_Video, inputFormat };
+	MFT_REGISTER_TYPE_INFO infoOutput = { MFMediaType_Video, outputFormat };
+
+	UINT32 unFlags = MFT_ENUM_FLAG_HARDWARE |
+		MFT_ENUM_FLAG_SYNCMFT |
+		MFT_ENUM_FLAG_LOCALMFT |
+		MFT_ENUM_FLAG_SORTANDFILTER;
+
+	hr = MFTEnumEx(
+		MFT_CATEGORY_VIDEO_PROCESSOR,
+		unFlags,
+		&infoInput,        // Input type
+		&infoOutput,       // Output type
+		&ppActivate,
+		&count
+	);
+
+	for (UINT32 i = 0; i < count; ++i)
+	{
+		hr = ppActivate[i]->ActivateObject(IID_PPV_ARGS(ppProcessor));
+		if (SUCCEEDED(hr) && *ppProcessor)
+		{
+			break;
+		}
+		SAFE_RELEASE(*ppProcessor);
+	}
+
+	for (UINT32 i = 0; i < count; i++)
+	{
+		ppActivate[i]->Release();
+	}
+	CoTaskMemFree(ppActivate);
+
+	return *ppProcessor ? S_OK : MF_E_NOT_FOUND;
+}
+
+
+STDMETHODIMP CMultipinMft::CreateColorConverter(
+	const GUID& inputSubtype,
+	const GUID& outputSubtype,
+	ComPtr<IMFTransform>& spMft
+)
+{
+	HRESULT hr = S_OK;
+	UINT32 unFlags = MFT_ENUM_FLAG_ASYNCMFT |
+		MFT_ENUM_FLAG_HARDWARE |
+		MFT_ENUM_FLAG_LOCALMFT |
+		MFT_ENUM_FLAG_SORTANDFILTER;
+
+	IMFActivate **ppMFTActive;
+	UINT32 cMFTActive;
+
+	hr = MFTEnumEx(MFT_CATEGORY_VIDEO_PROCESSOR, unFlags, nullptr, nullptr, &ppMFTActive, &cMFTActive);
+	if (SUCCEEDED(hr) && cMFTActive == 0)
+	{
+		hr = MF_E_TOPO_CODEC_NOT_FOUND;
+	}
+	if (SUCCEEDED(hr))
+	{
+		ppMFTActive[0]->ActivateObject(__uuidof(IMFTransform), (void **)&spMft);
+
+		ComPtr<IMFMediaType> pMediaType = nullptr;
+		MFCreateMediaType(&pMediaType);
+		// input:
+		pMediaType->SetGUID(MF_MT_MAJOR_TYPE, MFMediaType_Video);
+		pMediaType->SetGUID(MF_MT_SUBTYPE, inputSubtype);
+		//hr = MFSetAttributeSize(pMFTInputMediaType, MF_MT_FRAME_SIZE, 320, 240);
+		hr = spMft->MFTSetInputType(0, pMediaType.Get(), 0);
+		DMFTCHECKHR_GOTO(hr, done);
+
+		// output 
+		pMediaType->SetGUID(MF_MT_MAJOR_TYPE, MFMediaType_Video);
+		pMediaType->SetGUID(MF_MT_SUBTYPE, outputSubtype);
+		//hr = MFSetAttributeSize(pMFTOutputMediaType, MF_MT_FRAME_SIZE, 352, 288);
+
+		hr = spMft->MFTSetOutputType(0, pMediaType.Get(), 0);
+		DMFTCHECKHR_GOTO(hr, done);
+	}
+
+done:
+	if (SUCCEEDED(hr))
+	{
+		for (UINT32 i = 0; i < cMFTActive; i++)
+		{
+			ppMFTActive[i]->Release();
+		}
+		CoTaskMemFree(ppMFTActive);
+	} 
+
+	return hr;
+}
 
 /*++
 Description:
@@ -1827,9 +2066,10 @@ STDMETHODIMP CMultipinMft::BridgeInputPinOutputPin(
     _In_ COutPin* poPin
     )
 {
+	LOGINFO("BridgeInputPinOutputPin");
     HRESULT hr               = S_OK;
     ULONG   ulIndex          = 0;
-    ComPtr<IMFMediaType> pMediaType = nullptr;
+    ComPtr<IMFMediaType> pMediaType = nullptr; 
 
     DMFTCHECKNULL_GOTO( piPin, done, E_INVALIDARG );
     DMFTCHECKNULL_GOTO( poPin, done, E_INVALIDARG );
@@ -1838,18 +2078,19 @@ STDMETHODIMP CMultipinMft::BridgeInputPinOutputPin(
     // decoder support, only the uncompressed media types are inserted. Please make
     // sure any pin advertised supports at least one media type. The pipeline doesn't
     // like pins with no media types
-    //
+    // 
     while ( SUCCEEDED( hr = piPin->GetMediaTypeAt( ulIndex++, &pMediaType )))
     {
         GUID subType = GUID_NULL;
-        DMFTCHECKHR_GOTO( pMediaType->GetGUID(MF_MT_SUBTYPE,&subType), done );
-        
-        //if ( IsKnownUncompressedVideoType( subType ) )
-        {
-            DMFTCHECKHR_GOTO( poPin->AddMediaType(NULL, pMediaType.Get() ), done );
-        }
-
-        pMediaType = nullptr;
+        DMFTCHECKHR_GOTO( pMediaType->GetGUID(MF_MT_SUBTYPE,&subType), done );  
+		
+		DMFTCHECKHR_GOTO( FindVideoDecoder(subType), done);
+		// since we are outputing nv12 frame
+		pMediaType->SetGUID(MF_MT_SUBTYPE, MFVideoFormat_NV12);
+        DMFTCHECKHR_GOTO( poPin->AddMediaType(NULL, pMediaType.Get() ), done );
+		DMFTCHECKHR_GOTO( CreateColorConverter(MFVideoFormat_I420, MFVideoFormat_ARGB32, m_spConvertI420ToRGBA), done);
+		DMFTCHECKHR_GOTO( CreateColorConverter(MFVideoFormat_ARGB32, MFVideoFormat_NV12, m_spConvertRGBAToNV12), done);
+		pMediaType = nullptr;
     }
     //
     //Add the Input Pin to the output Pin

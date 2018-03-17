@@ -452,7 +452,7 @@ COutPin::COutPin(
     MFCreateAttributes( &spAttributes, 3 ); //Create the space for the attribute store!!
     setAttributes( spAttributes.Get());
     DMFTCHECKHR_GOTO( SetUINT32( MFT_SUPPORT_DYNAMIC_FORMAT_CHANGE, TRUE ), done );
-    DMFTCHECKHR_GOTO( SetString( MFT_ENUM_HARDWARE_URL_Attribute, L"Sample_CameraExtensionMft" ),done );
+    DMFTCHECKHR_GOTO( SetString( MFT_ENUM_HARDWARE_URL_Attribute, L"Insta360_CameraExtensionMft" ),done );
     DMFTCHECKHR_GOTO( SetUINT32( MF_TRANSFORM_ASYNC, TRUE ),done );
     
 done:
