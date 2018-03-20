@@ -148,6 +148,7 @@
       <PreCompiledHeader>Use</PreCompiledHeader>
       <PreCompiledHeaderOutputFile>$(IntDir)\stdafx.h.pch</PreCompiledHeaderOutputFile>
     </ClCompile>
+    <ClCompile Include="uvcApi.cpp" />
   </ItemGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <TargetName>Insta360DeviceMFT</TargetName>
@@ -187,6 +188,7 @@
     <ClCompile>
       <PreprocessorDefinitions>%(PreprocessorDefinitions);UNICODE;MF_WPP;SECURITY_WIN32;MFT_UNIQUE_METHOD_NAMES;MF_DEVICEMFT_ALLOW_MFT0_LOAD;_WINDOWS</PreprocessorDefinitions>
       <TreatWarningAsError>false</TreatWarningAsError>
+      <AdditionalIncludeDirectories>$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Midl>
       <PreprocessorDefinitions>%(PreprocessorDefinitions);UNICODE;MF_WPP;SECURITY_WIN32;MFT_UNIQUE_METHOD_NAMES;MF_DEVICEMFT_ALLOW_MFT0_LOAD</PreprocessorDefinitions>
@@ -195,8 +197,9 @@
       <PreprocessorDefinitions>%(PreprocessorDefinitions);UNICODE;MF_WPP;SECURITY_WIN32;MFT_UNIQUE_METHOD_NAMES;MF_DEVICEMFT_ALLOW_MFT0_LOAD</PreprocessorDefinitions>
     </ResourceCompile>
     <Link>
-      <AdditionalDependencies>%(AdditionalDependencies);D2d1.lib;mf.lib;mfplat.lib;mfuuid.lib;uuid.lib</AdditionalDependencies>
+      <AdditionalDependencies>%(AdditionalDependencies);D2d1.lib;mf.lib;mfplat.lib;mfuuid.lib;uuid.lib;Blender.lib</AdditionalDependencies>
       <ModuleDefinitionFile>Source.def</ModuleDefinitionFile>
+      <AdditionalLibraryDirectories>$(ProjectDir);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -264,6 +267,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Exclude="@(ClInclude)" Include="*.h;*.hpp;*.hxx;*.hm;*.inl;*.xsd" />
+    <ClInclude Include="BlenderWrapper.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
 </Project>

@@ -434,6 +434,7 @@ protected:
 		const GUID& outputFormat,   // The output MediaFormat (e.g. MFVideoFormat_NV12)
 		IMFTransform **ppProcessor // Receives the video processor
 	);
+	STDMETHODIMP GetAirOffset();
 
     //
     //Inline functions
@@ -480,13 +481,13 @@ private:
     ComPtr<IKsControl>           m_spIkscontrol;
     ComPtr<IMFAttributes>        m_spAttributes;
 	ComPtr<IMFTransform>         m_spVideoDecoder;            // The video decoder transform
-	ComPtr<IMFTransform>         m_spConvertRGBAToNV12;      // The color conversion transform
-	ComPtr<IMFTransform>         m_spConvertI420ToRGBA;      // The color conversion transform
+	ComPtr<IMFTransform>         m_pConvertRGBAToNV12;      // The color conversion transform
+	ComPtr<IMFTransform>         m_pConvertI420ToRGBA;      // The color conversion transform
 
     multimap<int, int>          m_inputPinMap;            // How input pins are connected to output pins o-><0..inpins>
     multimap<int, int>          m_outputPinMap;           // How output pins are connected to input pins i-><0..outpins>
     CDMFTEventHandler           m_eventHandler;
-
+	std::string                 m_offset;
 #if defined (MF_DEVICEMFT_PHTOTOCONFIRMATION)
     ComPtr<IMFAsyncCallback>    m_spPhotoConfirmationCallback;  //Photo Confirmation related definitions
     GUID                        m_guidPhotoConfirmationSubtype;

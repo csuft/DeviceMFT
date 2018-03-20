@@ -8,7 +8,9 @@
 
 #include "stdafx.h"
 #include "multipinmft.h"
+#include "uvcApi.h"
 #include "log.h"
+#include <fstream>
 #ifdef MF_WPP
 #include "multipinmft.tmh"    //--REF_ANALYZER_DONT_REMOVE--
 #endif
@@ -40,8 +42,8 @@ CMultipinMft::CMultipinMft()
     m_spAttributes( nullptr ),
     m_spSourceTransform( nullptr ),
 	m_spVideoDecoder(nullptr),
-	m_spConvertI420ToRGBA(nullptr),
-	m_spConvertRGBAToNV12(nullptr),
+	m_pConvertI420ToRGBA(nullptr),
+	m_pConvertRGBAToNV12(nullptr),
     m_PhotoTriggerSent(false),
     m_filterHasIndependentPin( false ),
     m_FilterInPhotoSequence( false ),
@@ -82,8 +84,8 @@ CMultipinMft::~CMultipinMft( )
 
     m_spSourceTransform = nullptr;
 	m_spVideoDecoder = nullptr;
-	m_spConvertI420ToRGBA = nullptr;
-	m_spConvertRGBAToNV12 = nullptr;
+	m_pConvertI420ToRGBA = nullptr;
+	m_pConvertRGBAToNV12 = nullptr;
 }
 
 STDMETHODIMP_(ULONG) CMultipinMft::AddRef(
@@ -414,8 +416,18 @@ STDMETHODIMP CMultipinMft::InitializeTransform (
     m_InputPinCount =  ULONG ( m_InPins.size() );
     m_OutputPinCount = ULONG ( m_OutPins.size() );
     
-	// start to read offset
+	// Create blender instance
 
+
+	// start to read offset
+	GetAirOffset();
+
+	// create decoder
+	hr = FindVideoDecoder(MFVideoFormat_MJPG);
+	if (FAILED(hr))
+	{
+		LOGERR("Failed to find video decoder");
+	}
 
 done:
     DMFTRACE(DMFT_GENERAL, TRACE_LEVEL_INFORMATION, "%!FUNC! exiting %x = %!HRESULT!",hr,hr);
@@ -455,6 +467,60 @@ done:
         m_spSourceTransform = nullptr;
     }
     return hr;
+}
+
+STDMETHODIMP CMultipinMft::GetAirOffset()
+{
+	static const GUID Insta360Exu1Guid = { 0xFAF1672D, 0xB71B, 0x4793,{ 0x8C, 0x91, 0x7b, 0x1c, 0x9b, 0x7f, 0x95, 0xf8 } };
+	HRESULT hr = S_OK;
+
+	dshow::DirectShowControl uvc;
+	std::vector<std::string> v;
+	std::vector<std::string> v2;
+	std::vector<int> vn;
+	int num = -1;
+
+	// try to read offset in file firstly
+	std::ifstream offsetFile("offset", std::ios::in); 
+	if (offsetFile.is_open())
+	{
+		char chOffset[1024];
+		offsetFile.getline(chOffset, 1024);
+		m_offset = chOffset;
+		return hr;
+	}
+	// offset file does not exist, try to read from device
+	hr = uvc.GetDevicePath(0x2e1a, 0x1000, v, vn, v2);
+	if (v.size()<1)
+	{
+		LOGERR("unable to get device path!!!");
+		return 1;
+	}
+	dshow::UvcDeviceHandle dev;
+	hr = uvc.FindDeviceByPath(&dev, v[0]);
+	if (FAILED(hr))
+	{
+		LOGERR("unable to find device!!!");
+		return 1;
+	}
+	hr = uvc.Prepare(dev, &Insta360Exu1Guid);
+	if (FAILED(hr))
+	{
+		LOGERR("prepared failed!!!");
+		return 1;
+	}
+	char* data = nullptr;
+	hr = uvc.UvcXuGet(&data, TAG_PANOOFFSET, INDEX_INSTA_DATA_PANOOFFSET);
+	if (FAILED(hr)) {
+		LOGERR("unable to get offset data!!!");
+		return 1;
+	}
+	if (data != nullptr)
+	{
+		m_offset = data;
+	}
+	uvc.close();
+	return hr;
 }
 
 
@@ -2070,28 +2136,26 @@ STDMETHODIMP CMultipinMft::BridgeInputPinOutputPin(
     HRESULT hr               = S_OK;
     ULONG   ulIndex          = 0;
     ComPtr<IMFMediaType> pMediaType = nullptr; 
+	ComPtr<IMFMediaType> pOutputMeidaType = nullptr;
 
     DMFTCHECKNULL_GOTO( piPin, done, E_INVALIDARG );
-    DMFTCHECKNULL_GOTO( poPin, done, E_INVALIDARG );
-    //
-    // Copy over the media types from input pin to output pin. Since there is no
-    // decoder support, only the uncompressed media types are inserted. Please make
-    // sure any pin advertised supports at least one media type. The pipeline doesn't
-    // like pins with no media types
-    // 
+    DMFTCHECKNULL_GOTO( poPin, done, E_INVALIDARG ); 
+
+	DMFTCHECKHR_GOTO(CreateVideoType(&MFVideoFormat_NV12, &pOutputMeidaType, 0, 0), done);
     while ( SUCCEEDED( hr = piPin->GetMediaTypeAt( ulIndex++, &pMediaType )))
-    {
-        GUID subType = GUID_NULL;
-        DMFTCHECKHR_GOTO( pMediaType->GetGUID(MF_MT_SUBTYPE,&subType), done );  
-		
-		DMFTCHECKHR_GOTO( FindVideoDecoder(subType), done);
-		// since we are outputing nv12 frame
-		pMediaType->SetGUID(MF_MT_SUBTYPE, MFVideoFormat_NV12);
-        DMFTCHECKHR_GOTO( poPin->AddMediaType(NULL, pMediaType.Get() ), done );
-		DMFTCHECKHR_GOTO( CreateColorConverter(MFVideoFormat_I420, MFVideoFormat_ARGB32, m_spConvertI420ToRGBA), done);
-		DMFTCHECKHR_GOTO( CreateColorConverter(MFVideoFormat_ARGB32, MFVideoFormat_NV12, m_spConvertRGBAToNV12), done);
+    { 
+        DMFTCHECKHR_GOTO( poPin->AddMediaType(NULL, pOutputMeidaType.Get() ), done );
 		pMediaType = nullptr;
     }
+	pOutputMeidaType = nullptr;
+
+	BOOL isVideoProcessorSupported;
+
+	if (SUCCEEDED(hr = IsVideoProcessorSupported(&isVideoProcessorSupported)) && isVideoProcessorSupported)
+	{
+		DMFTCHECKHR_GOTO(GetBestVideoProcessor(MFVideoFormat_I420, MFVideoFormat_ARGB32, &m_pConvertI420ToRGBA), done);
+		DMFTCHECKHR_GOTO(GetBestVideoProcessor(MFVideoFormat_ARGB32, MFVideoFormat_NV12, &m_pConvertRGBAToNV12), done);
+	}
     //
     //Add the Input Pin to the output Pin
     //

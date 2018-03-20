@@ -42,6 +42,9 @@
     <ClCompile Include="log.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="uvcApi.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="basepin.h">
@@ -373,10 +376,84 @@
     </ClInclude>
     <ClInclude Include="common.h" />
     <ClInclude Include="custompin.h" />
+    <ClInclude Include="log.h" />
     <ClInclude Include="mftpeventgenerator.h" />
     <ClInclude Include="multipinmft.h" />
     <ClInclude Include="multipinmfthelpers.h" />
     <ClInclude Include="stdafx.h" />
+    <ClInclude Include="basepin.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="common.h" />
+    <ClInclude Include="custompin.h" />
+    <ClInclude Include="log.h" />
+    <ClInclude Include="mftpeventgenerator.h" />
+    <ClInclude Include="multipinmft.h" />
+    <ClInclude Include="multipinmfthelpers.h" />
+    <ClInclude Include="stdafx.h" />
+    <ClInclude Include="basepin.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="common.h" />
+    <ClInclude Include="custompin.h" />
+    <ClInclude Include="log.h" />
+    <ClInclude Include="mftpeventgenerator.h" />
+    <ClInclude Include="multipinmft.h" />
+    <ClInclude Include="multipinmfthelpers.h" />
+    <ClInclude Include="stdafx.h" />
+    <ClInclude Include="basepin.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="common.h" />
+    <ClInclude Include="custompin.h" />
+    <ClInclude Include="log.h" />
+    <ClInclude Include="mftpeventgenerator.h" />
+    <ClInclude Include="multipinmft.h" />
+    <ClInclude Include="multipinmfthelpers.h" />
+    <ClInclude Include="stdafx.h" />
+    <ClInclude Include="basepin.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="common.h" />
+    <ClInclude Include="custompin.h" />
+    <ClInclude Include="log.h" />
+    <ClInclude Include="mftpeventgenerator.h" />
+    <ClInclude Include="multipinmft.h" />
+    <ClInclude Include="multipinmfthelpers.h" />
+    <ClInclude Include="stdafx.h" />
+    <ClInclude Include="basepin.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="common.h" />
+    <ClInclude Include="custompin.h" />
+    <ClInclude Include="log.h" />
+    <ClInclude Include="mftpeventgenerator.h" />
+    <ClInclude Include="multipinmft.h" />
+    <ClInclude Include="multipinmfthelpers.h" />
+    <ClInclude Include="stdafx.h" />
+    <ClInclude Include="basepin.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="common.h" />
+    <ClInclude Include="custompin.h" />
+    <ClInclude Include="log.h" />
+    <ClInclude Include="mftpeventgenerator.h" />
+    <ClInclude Include="multipinmft.h" />
+    <ClInclude Include="multipinmfthelpers.h" />
+    <ClInclude Include="stdafx.h" />
+    <ClInclude Include="basepin.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="common.h" />
+    <ClInclude Include="custompin.h" />
+    <ClInclude Include="log.h" />
+    <ClInclude Include="mftpeventgenerator.h" />
+    <ClInclude Include="multipinmft.h" />
+    <ClInclude Include="multipinmfthelpers.h" />
+    <ClInclude Include="stdafx.h" />
+    <ClInclude Include="BlenderWrapper.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="*.def;*.bat;*.hpj;*.asmx">
