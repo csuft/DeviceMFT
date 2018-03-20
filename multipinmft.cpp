@@ -37,13 +37,16 @@ CMultipinMft::CMultipinMft()
 :   m_nRefCount( 0 ),
     m_InputPinCount( 0 ),
     m_OutputPinCount( 0 ),
+	m_frameWidth(0),
+	m_frameHeight(0),
     m_dwWorkQueueId ( MFASYNC_CALLBACK_QUEUE_MULTITHREADED ),
     m_lWorkQueuePriority ( 0 ),
     m_spAttributes( nullptr ),
     m_spSourceTransform( nullptr ),
 	m_spVideoDecoder(nullptr),
-	m_pConvertI420ToRGBA(nullptr),
-	m_pConvertRGBAToNV12(nullptr),
+	m_spStitcher(nullptr),
+	m_spConvertI420ToRGBA(nullptr),
+	m_spConvertRGBAToNV12(nullptr),
     m_PhotoTriggerSent(false),
     m_filterHasIndependentPin( false ),
     m_FilterInPhotoSequence( false ),
@@ -84,8 +87,9 @@ CMultipinMft::~CMultipinMft( )
 
     m_spSourceTransform = nullptr;
 	m_spVideoDecoder = nullptr;
-	m_pConvertI420ToRGBA = nullptr;
-	m_pConvertRGBAToNV12 = nullptr;
+	m_spConvertI420ToRGBA = nullptr;
+	m_spConvertRGBAToNV12 = nullptr; 
+	m_spStitcher = nullptr;
 }
 
 STDMETHODIMP_(ULONG) CMultipinMft::AddRef(
@@ -416,12 +420,16 @@ STDMETHODIMP CMultipinMft::InitializeTransform (
     m_InputPinCount =  ULONG ( m_InPins.size() );
     m_OutputPinCount = ULONG ( m_OutPins.size() );
     
-	// Create blender instance
-
-
 	// start to read offset
 	GetAirOffset();
-
+	if (m_offset.empty())
+	{
+		LOGERR("Offset string is empty!");
+	}
+	else
+	{
+		m_blendParams.offset = m_offset;
+	}
 	// create decoder
 	hr = FindVideoDecoder(MFVideoFormat_MJPG);
 	if (FAILED(hr))
@@ -477,8 +485,7 @@ STDMETHODIMP CMultipinMft::GetAirOffset()
 	dshow::DirectShowControl uvc;
 	std::vector<std::string> v;
 	std::vector<std::string> v2;
-	std::vector<int> vn;
-	int num = -1;
+	std::vector<int> vn; 
 
 	// try to read offset in file firstly
 	std::ifstream offsetFile("offset", std::ios::in); 
@@ -519,6 +526,7 @@ STDMETHODIMP CMultipinMft::GetAirOffset()
 	{
 		m_offset = data;
 	}
+	
 	uvc.close();
 	return hr;
 }
@@ -877,10 +885,11 @@ STDMETHODIMP  CMultipinMft::ProcessInput(
 /*++
     Description:
 
-        Implements IMFTransform::ProcessInput function.This function is called
-        when the sourcetransform has input to feed. the pins will try to deliver the 
-        samples to the active output pins conencted. if none are connected then just
-        returns the sample back to the source transform
+        Implements IMFTransform::ProcessInput function.
+		This function is called  when the source transform has input to feed. 
+		the pins will try to deliver the samples to the active output pins 
+		conencted. if none are connected then just returns the sample back to
+		the source transform
 
 --*/
 {
@@ -889,7 +898,22 @@ STDMETHODIMP  CMultipinMft::ProcessInput(
     UNREFERENCED_PARAMETER( dwFlags );
 
     MFTLOCKED();
-
+	DWORD len;
+	ComPtr<IMFMediaBuffer> bf;
+	MFT_OUTPUT_STREAM_INFO mftStreamInfo = { 0 };
+	MFT_OUTPUT_DATA_BUFFER mftDecodingOutputData = { 0 };
+	ComPtr<IMFSample> spConvertedSample2 = NULL;
+	ComPtr<IMFMediaBuffer> spResultBuffer = NULL;
+	MFT_OUTPUT_DATA_BUFFER mftResultData = { 0 };
+	ComPtr<IMFSample> spSampleOutput = NULL;
+	ComPtr<IMFMediaBuffer> spBufferOut = NULL;
+	ComPtr<IMFMediaBuffer> spStitchInputBuffer = nullptr;
+	BYTE* pbStichInputBufferPtr;
+	ComPtr<IMFMediaBuffer> spStitchOutputBuffer = nullptr;
+	BYTE* pbStitchOutputBufferPtr;
+	ComPtr<IMFSample> spConvertedSample1 = NULL;
+	ComPtr<IMFSample> pStitchedSample = NULL;
+	MFT_OUTPUT_DATA_BUFFER mftConvertedOutputData = { 0 };
     CInPin *inPin = ( CInPin* )GetInPin( dwInputStreamID );
     DMFTCHECKNULL_GOTO( inPin, done, E_INVALIDARG );
 
@@ -898,7 +922,68 @@ STDMETHODIMP  CMultipinMft::ProcessInput(
         goto done;
     }
 
-    DMFTCHECKHR_GOTO( inPin->SendSample( pSample ), done );
+	hr = pSample->GetBufferByIndex(0, &bf);
+	hr = bf->GetCurrentLength(&len);
+	
+	////// decode frame ////////////////////////////////////////////////////////////
+	hr = m_spVideoDecoder->MFTProcessInput(dwInputStreamID, pSample, dwFlags);
+	
+	DMFTCHECKHR_GOTO(m_spVideoDecoder->MFTGetOutputStreamInfo(0, &mftStreamInfo), done);
+	DMFTCHECKHR_GOTO(CreateMediaSample(mftStreamInfo.cbSize, &spSampleOutput), done);
+	hr = spSampleOutput->GetBufferByIndex(0, &spBufferOut);
+	if (FAILED(hr))
+	{ 
+		DMFTCHECKHR_GOTO(hr, done);
+	}
+	DMFTCHECKHR_GOTO(spBufferOut->SetCurrentLength(0), done);
+	//Set the output sample
+	mftDecodingOutputData.pSample = spSampleOutput.Get();
+	//Set the output id
+	mftDecodingOutputData.dwStreamID = dwInputStreamID;
+	hr = m_spVideoDecoder->MFTProcessOutput(0, 1, &mftDecodingOutputData, 0);
+
+	///////// convert color space ////////////////////////////////////////////////////
+	m_spConvertI420ToRGBA->MFTProcessInput(dwInputStreamID, mftDecodingOutputData.pSample, dwFlags);
+	DMFTCHECKHR_GOTO(m_spConvertI420ToRGBA->MFTGetOutputStreamInfo(0, &mftStreamInfo), done);
+	DMFTCHECKHR_GOTO(CreateMediaSample(mftStreamInfo.cbSize, &spConvertedSample1), done);
+	hr = spConvertedSample1->GetBufferByIndex(0, &spBufferOut);
+	if (FAILED(hr))
+	{
+		DMFTCHECKHR_GOTO(hr, done);
+	}
+	DMFTCHECKHR_GOTO(spBufferOut->SetCurrentLength(0), done);
+	mftConvertedOutputData.pSample = spConvertedSample1.Get();
+	mftConvertedOutputData.dwStreamID = dwInputStreamID; 
+	m_spConvertI420ToRGBA->MFTProcessOutput(0, 1, &mftConvertedOutputData, 0);
+	DMFTCHECKHR_GOTO(CreateMediaSample(mftStreamInfo.cbSize, &pStitchedSample), done);
+	// do stitching stuff
+
+	DMFTCHECKHR_GOTO(mftConvertedOutputData.pSample->GetBufferByIndex(0, &spStitchInputBuffer),done);
+	DMFTCHECKHR_GOTO(pStitchedSample->GetBufferByIndex(0, &spStitchOutputBuffer), done);
+	spStitchInputBuffer->Lock(&pbStichInputBufferPtr, nullptr, nullptr);
+	spStitchOutputBuffer->Lock(&pbStitchOutputBufferPtr, nullptr, nullptr);
+	m_blendParams.input_data = pbStichInputBufferPtr;
+	m_blendParams.output_data = pbStitchOutputBufferPtr;
+	m_spStitcher->runImageBlender(m_blendParams, CBlenderWrapper::PANORAMIC_BLENDER);
+	spStitchInputBuffer->Unlock();
+	spStitchOutputBuffer->Unlock();
+
+	///////// convert back to original color space ///////////////////////////////////
+	m_spConvertRGBAToNV12->MFTProcessInput(dwInputStreamID, pStitchedSample.Get(), dwFlags);
+	DMFTCHECKHR_GOTO(m_spConvertRGBAToNV12->MFTGetOutputStreamInfo(0, &mftStreamInfo), done);
+	DMFTCHECKHR_GOTO(CreateMediaSample(mftStreamInfo.cbSize, &spConvertedSample2), done);
+	hr = spConvertedSample2->GetBufferByIndex(0, &spResultBuffer);
+	if (FAILED(hr))
+	{
+		DMFTCHECKHR_GOTO(hr, done);
+	}
+	DMFTCHECKHR_GOTO(spResultBuffer->SetCurrentLength(0), done);
+	mftResultData.pSample = spConvertedSample2.Get();
+	mftResultData.dwStreamID = dwInputStreamID;
+
+	m_spConvertRGBAToNV12->MFTProcessOutput(0, 1, &mftResultData, 0);
+
+    DMFTCHECKHR_GOTO( inPin->SendSample( mftResultData.pSample ), done );
 
     QueueEvent( METransformHaveOutput, GUID_NULL, S_OK, NULL );
    
@@ -2074,7 +2159,7 @@ STDMETHODIMP CMultipinMft::CreateColorConverter(
 )
 {
 	HRESULT hr = S_OK;
-	UINT32 unFlags = MFT_ENUM_FLAG_ASYNCMFT |
+	UINT32 unFlags = MFT_ENUM_FLAG_SYNCMFT |
 		MFT_ENUM_FLAG_HARDWARE |
 		MFT_ENUM_FLAG_LOCALMFT |
 		MFT_ENUM_FLAG_SORTANDFILTER;
@@ -2135,26 +2220,49 @@ STDMETHODIMP CMultipinMft::BridgeInputPinOutputPin(
 	LOGINFO("BridgeInputPinOutputPin");
     HRESULT hr               = S_OK;
     ULONG   ulIndex          = 0;
+	UINT32  uWidth           = 0;
+	UINT32  uHeight          = 0;
     ComPtr<IMFMediaType> pMediaType = nullptr; 
 	ComPtr<IMFMediaType> pOutputMeidaType = nullptr;
 
     DMFTCHECKNULL_GOTO( piPin, done, E_INVALIDARG );
     DMFTCHECKNULL_GOTO( poPin, done, E_INVALIDARG ); 
 
-	DMFTCHECKHR_GOTO(CreateVideoType(&MFVideoFormat_NV12, &pOutputMeidaType, 0, 0), done);
     while ( SUCCEEDED( hr = piPin->GetMediaTypeAt( ulIndex++, &pMediaType )))
     { 
-        DMFTCHECKHR_GOTO( poPin->AddMediaType(NULL, pOutputMeidaType.Get() ), done );
+		DMFTCHECKHR_GOTO(MFGetAttributeSize(pMediaType.Get(), MF_MT_FRAME_SIZE, &uWidth, &uHeight), done);
+		DMFTCHECKHR_GOTO(CreateVideoType(&MFVideoFormat_NV12, &pOutputMeidaType, 0, 0), done);
+        DMFTCHECKHR_GOTO(poPin->AddMediaType(NULL, pOutputMeidaType.Get() ), done );
 		pMediaType = nullptr;
+		pOutputMeidaType = nullptr;
     }
-	pOutputMeidaType = nullptr;
+	
+	LOGINFO("Frame width: %u, height: %u", uWidth, uHeight);
+	// create stitcher instance
+	if (uWidth != 0 && uHeight != 0)
+	{
+		if (uWidth != m_frameWidth || uHeight != m_frameHeight)
+		{
+			m_blendParams.input_width = uWidth;
+			m_blendParams.input_height = uHeight;
+			m_blendParams.output_width = uWidth;
+			m_blendParams.output_height = uHeight;
+			
+			m_spStitcher = std::make_unique<CBlenderWrapper>();
+			m_spStitcher->capabilityAssessment();
+			m_spStitcher->getSingleInstance(BLENDER_FOUR_CHANNELS);
+			m_spStitcher->initializeDevice();
 
-	BOOL isVideoProcessorSupported;
-
+			m_frameWidth = uWidth;
+			m_frameHeight = uHeight;
+		}
+	}
+	
+	BOOL isVideoProcessorSupported = false;
 	if (SUCCEEDED(hr = IsVideoProcessorSupported(&isVideoProcessorSupported)) && isVideoProcessorSupported)
 	{
-		DMFTCHECKHR_GOTO(GetBestVideoProcessor(MFVideoFormat_I420, MFVideoFormat_ARGB32, &m_pConvertI420ToRGBA), done);
-		DMFTCHECKHR_GOTO(GetBestVideoProcessor(MFVideoFormat_ARGB32, MFVideoFormat_NV12, &m_pConvertRGBAToNV12), done);
+		DMFTCHECKHR_GOTO(GetBestVideoProcessor(MFVideoFormat_I420, MFVideoFormat_ARGB32, &m_spConvertI420ToRGBA), done);
+		DMFTCHECKHR_GOTO(GetBestVideoProcessor(MFVideoFormat_ARGB32, MFVideoFormat_NV12, &m_spConvertRGBAToNV12), done);
 	}
     //
     //Add the Input Pin to the output Pin
