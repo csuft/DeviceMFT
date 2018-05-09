@@ -9,7 +9,6 @@
 #include "stdafx.h"
 #include "multipinmft.h"
 #include "uvcApi.h"
-#include "log.h"
 #include <fstream>
 #ifdef MF_WPP
 #include "multipinmft.tmh"    //--REF_ANALYZER_DONT_REMOVE--
@@ -198,8 +197,7 @@ STDMETHODIMP CMultipinMft::QueryInterface(
 STDMETHODIMP CMultipinMft::InitializeTransform ( 
     _In_ IMFAttributes *pAttributes
     )
-{
-	LOGINFO("Entry point: InitializeTransform");
+{ 
     HRESULT                 hr              = S_OK;
     ComPtr<IUnknown>        spFilterUnk     = nullptr;
     DWORD                   *pcInputStreams = NULL, *pcOutputStreams = NULL;
@@ -420,22 +418,8 @@ STDMETHODIMP CMultipinMft::InitializeTransform (
     m_InputPinCount =  ULONG ( m_InPins.size() );
     m_OutputPinCount = ULONG ( m_OutPins.size() );
     
-	// start to read offset
-	GetAirOffset();
-	if (m_offset.empty())
-	{
-		LOGERR("Offset string is empty!");
-	}
-	else
-	{
-		m_blendParams.offset = m_offset;
-	}
 	// create decoder
-	hr = FindVideoDecoder(MFVideoFormat_MJPG);
-	if (FAILED(hr))
-	{
-		LOGERR("Failed to find video decoder");
-	}
+	hr = FindVideoDecoder(MFVideoFormat_MJPG); 
 
 done:
     DMFTRACE(DMFT_GENERAL, TRACE_LEVEL_INFORMATION, "%!FUNC! exiting %x = %!HRESULT!",hr,hr);
@@ -499,27 +483,23 @@ STDMETHODIMP CMultipinMft::GetAirOffset()
 	// offset file does not exist, try to read from device
 	hr = uvc.GetDevicePath(0x2e1a, 0x1000, v, vn, v2);
 	if (v.size()<1)
-	{
-		LOGERR("unable to get device path!!!");
+	{ 
 		return 1;
 	}
 	dshow::UvcDeviceHandle dev;
 	hr = uvc.FindDeviceByPath(&dev, v[0]);
 	if (FAILED(hr))
-	{
-		LOGERR("unable to find device!!!");
+	{ 
 		return 1;
 	}
 	hr = uvc.Prepare(dev, &Insta360Exu1Guid);
 	if (FAILED(hr))
-	{
-		LOGERR("prepared failed!!!");
+	{ 
 		return 1;
 	}
 	char* data = nullptr;
 	hr = uvc.UvcXuGet(&data, TAG_PANOOFFSET, INDEX_INSTA_DATA_PANOOFFSET);
-	if (FAILED(hr)) {
-		LOGERR("unable to get offset data!!!");
+	if (FAILED(hr)) { 
 		return 1;
 	}
 	if (data != nullptr)
@@ -636,8 +616,7 @@ STDMETHODIMP  CMultipinMft::GetInputAvailableType(
     _In_        DWORD           dwTypeIndex,
     _Out_ IMFMediaType**  ppMediaType
     )
-{
-	LOGINFO("GetInputAvailableType");
+{ 
     HRESULT hr = S_OK;
     MFTLOCKED();
 
@@ -676,8 +655,7 @@ STDMETHODIMP CMultipinMft::GetOutputAvailableType(
         index dwTypeIndex.
 
 --*/
-{
-	LOGINFO("GetOutputAvailableType");
+{ 
     HRESULT hr = S_OK;
     MFTLOCKED();
     
@@ -892,8 +870,7 @@ STDMETHODIMP  CMultipinMft::ProcessInput(
 		the source transform
 
 --*/
-{
-	LOGINFO("ProcessInput");
+{ 
     HRESULT     hr = S_OK;
     UNREFERENCED_PARAMETER( dwFlags );
 
@@ -956,15 +933,15 @@ STDMETHODIMP  CMultipinMft::ProcessInput(
 	mftConvertedOutputData.dwStreamID = dwInputStreamID; 
 	m_spConvertI420ToRGBA->MFTProcessOutput(0, 1, &mftConvertedOutputData, 0);
 	DMFTCHECKHR_GOTO(CreateMediaSample(mftStreamInfo.cbSize, &pStitchedSample), done);
+	
 	// do stitching stuff
-
 	DMFTCHECKHR_GOTO(mftConvertedOutputData.pSample->GetBufferByIndex(0, &spStitchInputBuffer),done);
 	DMFTCHECKHR_GOTO(pStitchedSample->GetBufferByIndex(0, &spStitchOutputBuffer), done);
 	spStitchInputBuffer->Lock(&pbStichInputBufferPtr, nullptr, nullptr);
 	spStitchOutputBuffer->Lock(&pbStitchOutputBufferPtr, nullptr, nullptr);
 	m_blendParams.input_data = pbStichInputBufferPtr;
 	m_blendParams.output_data = pbStitchOutputBufferPtr;
-	m_spStitcher->runImageBlender(m_blendParams, CBlenderWrapper::PANORAMIC_BLENDER);
+	//m_spStitcher->runImageBlender(m_blendParams, CBlenderWrapper::PANORAMIC_BLENDER);
 	spStitchInputBuffer->Unlock();
 	spStitchOutputBuffer->Unlock();
 
@@ -1009,8 +986,7 @@ pointers to be filled up as is the number of output pins available. The DT shoul
 output pins and populate the corresponding MFT_OUTPUT_DATA_BUFFER with the samples available
 
 --*/
-{
-	LOGINFO("ProcessOutput");
+{ 
     HRESULT     hr      = S_OK;
     BOOL       gotOne   = false;
     MFTLOCKED();
@@ -1120,8 +1096,7 @@ STDMETHODIMP CMultipinMft::SetInputStreamState(
     this case the DTM sends a getpreferredinputstate and then this call
 
     --*/
-{
-	LOGINFO("SetInputStreamState");
+{ 
     HRESULT hr = S_OK;
     CInPin *piPin = (CInPin*)GetInPin(dwStreamID);
     DMFTCHECKNULL_GOTO(piPin, done, MF_E_INVALIDSTREAMNUMBER);
@@ -1172,8 +1147,7 @@ STDMETHODIMP CMultipinMft::SetOutputStreamState(
     and the state to transition into. It then might recreate the other output pins
     connected to it
     --*/
-{
-	LOGINFO("SetOutputStreamState");
+{ 
     HRESULT hr = S_OK;
     UNREFERENCED_PARAMETER(dwFlags);
      CAutoLock Lock(m_critSec);
@@ -2217,7 +2191,6 @@ STDMETHODIMP CMultipinMft::BridgeInputPinOutputPin(
     _In_ COutPin* poPin
     )
 {
-	LOGINFO("BridgeInputPinOutputPin");
     HRESULT hr               = S_OK;
     ULONG   ulIndex          = 0;
 	UINT32  uWidth           = 0;
@@ -2236,8 +2209,7 @@ STDMETHODIMP CMultipinMft::BridgeInputPinOutputPin(
 		pMediaType = nullptr;
 		pOutputMeidaType = nullptr;
     }
-	
-	LOGINFO("Frame width: %u, height: %u", uWidth, uHeight);
+	 
 	// create stitcher instance
 	if (uWidth != 0 && uHeight != 0)
 	{
@@ -2248,22 +2220,25 @@ STDMETHODIMP CMultipinMft::BridgeInputPinOutputPin(
 			m_blendParams.output_width = uWidth;
 			m_blendParams.output_height = uHeight;
 			
-			m_spStitcher = std::make_unique<CBlenderWrapper>();
+			/*m_spStitcher = std::make_unique<CBlenderWrapper>();
 			m_spStitcher->capabilityAssessment();
 			m_spStitcher->getSingleInstance(BLENDER_FOUR_CHANNELS);
-			m_spStitcher->initializeDevice();
+			m_spStitcher->initializeDevice();*/
 
 			m_frameWidth = uWidth;
 			m_frameHeight = uHeight;
 		}
 	}
 	
-	BOOL isVideoProcessorSupported = false;
-	if (SUCCEEDED(hr = IsVideoProcessorSupported(&isVideoProcessorSupported)) && isVideoProcessorSupported)
-	{
-		DMFTCHECKHR_GOTO(GetBestVideoProcessor(MFVideoFormat_I420, MFVideoFormat_ARGB32, &m_spConvertI420ToRGBA), done);
-		DMFTCHECKHR_GOTO(GetBestVideoProcessor(MFVideoFormat_ARGB32, MFVideoFormat_NV12, &m_spConvertRGBAToNV12), done);
+	if (!m_spConvertI420ToRGBA) {
+		BOOL isVideoProcessorSupported = false;
+		if (SUCCEEDED(hr = IsVideoProcessorSupported(&isVideoProcessorSupported)) && isVideoProcessorSupported)
+		{
+			DMFTCHECKHR_GOTO(GetBestVideoProcessor(MFVideoFormat_I420, MFVideoFormat_ARGB32, &m_spConvertI420ToRGBA), done);
+			DMFTCHECKHR_GOTO(GetBestVideoProcessor(MFVideoFormat_ARGB32, MFVideoFormat_NV12, &m_spConvertRGBAToNV12), done);
+		}
 	}
+
     //
     //Add the Input Pin to the output Pin
     //
